@@ -12,5 +12,5 @@ services:
       - '/home/jeepend/workspace/ftp:/srv/ftp'
       - '/etc/localtime:/etc/localtime' # timesone
       - '/etc/timezone:/etc/timezone' # timezone
-    tty: true # Allocate a pseudo-TTY(same with docker run -t)
+    tty: true # Allocate a pseudo-TTY (same with docker run -t)
     stdin_open: true # Keep STDIN open even if not attached (same with docker run -i)
