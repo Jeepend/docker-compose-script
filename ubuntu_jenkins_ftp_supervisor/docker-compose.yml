@@ -8,6 +8,9 @@ services:
       - '21100-21110:21100-21110' #vsftpd
       - '9001:9001' # supervisor
     volumes: 
-      - '/Users/jeepend/jenkins:/var/lib/jenkins'
-      - '/Users/jeepend/docker/ftp:/srv/ftp'
-    tty: true
+      - '/home/jeepend/workspace/jenkins:/var/lib/jenkins'
+      - '/home/jeepend/workspace/ftp:/srv/ftp'
+      - '/etc/localtime:/etc/localtime' # timesone
+      - '/etc/timezone:/etc/timezone' # timezone
+    tty: true # Allocate a pseudo-TTY(same with docker run -t)
+    stdin_open: true # Keep STDIN open even if not attached (same with docker run -i)
