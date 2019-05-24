@@ -2,6 +2,7 @@ version: '2'
 services: 
   main: 
     image: jeepend/ubuntu_jenkins_ftp_supervisor
+    restart: always
     ports: 
       - '8080:8080' # jenkins
       - '20-21:20-21' # vsftpd
