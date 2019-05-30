@@ -1,0 +1,15 @@
+version: '2'
+services: 
+  main: 
+    image: alpine
+    restart: always
+    ports: 
+      - '8889:8889' # s3
+    volumes: 
+      - './workspace:/root/workspace'
+      - '/etc/localtime:/etc/localtime' # timezone
+      - '/etc/timezone:/etc/timezone' # timezone
+    tty: true # Allocate a pseudo-TTY (same with docker run -t)
+    stdin_open: true # Keep STDIN open even if not attached (same with docker run -i)
+    working_dir: /root/workspace/
+    command: /root/workspace/S3TokenRequest
