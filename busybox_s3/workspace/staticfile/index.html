@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PresignUtil</title>
+    <script src="/js/vue.js"></script>
+    <script src="/js/axios.min.js"></script>
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="css/eleme.css">
+    <!-- 引入组件库 -->
+    <script src="js/eleme.js"></script>
+    <script src="js/moment.min.js"></script>
+    <link rel="shortcut  icon" type="image/x-icon" media="screen" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABZ0lEQVQ4T43TP0iWURTH8c9rUA6aa4sKEeRUYkstboJhUYOEgWtCaZMhLYHgEIEOIpEKRaSzLjW0NVogOgkvQVDUIA5CSX+QeOPIfeD69KLvhWe4v3vu957z/M6p+H+1YwgD6E7HG3iNV9jJr1SyTQuWcAO5nsf/wCPMFmIReAofcKFORvWk57iDWgFYTEKD9w/CZvAgAOdQRdMxt9/hI+If9eMvzgbgMR428PRTjGIZwyl+KgCbuJgBIps1nMflTJ9CH15ivnAnAL/QnAVGbeOYjhqTXsP1pPfiRNJ/B+A7WjPAXPL6GwZxFS/wB3dLpe6VS4hXvySfA3wfYfFJPEH0Sr6qAYiDiaSO4TSi3kjzM76iB29SRjngWQA68SnZuI1ddGVRk2jDbZwpZXCpaKQFjDRg5aHXcS9v5fclO4/ireMK9svDFNN284hhCuhqaqSfsak3dR24hWtpnKNlt9K3grd5av8A0kxDCZXoAhYAAAAASUVORK5CYII="/>
+</head>
+<body>
+<div id="app">
+    <el-row>
+        <div style="margin-top: 15px;">
+            <el-input placeholder="请输入内容" v-model="key" class="input-with-select" @keyup.enter.native="query">
+                <template slot="prepend">s3 : //</template>
+                <el-select style="width: 260px; margin-left: 0px" v-model="bucket" filterable default-first-option slot="prepend">
+                    <el-option v-for="(value, key, index) in buckets" :label="key" :key="key" :value="key"></el-option>
+                </el-select>
+                <template slot="prepend">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/</template>
+                <el-button slot="append" icon="el-icon-search" v-on:click="query"></el-button>
+            </el-input>
+        </div>
+    </el-row>
+
+
+    <el-row style="margin-top: 15px;">
+        <div>
+            <span v-html="display_area"></span>
+        </div>
+    </el-row>
+
+
+</div>
+
+<script>
+    const C = {
+        buckets: {
+            'm56-dev-dvr-data' : {
+                env: 'dev',
+            },
+            'm56-dev-faceid' : {
+                env: 'dev',
+            },
+            'm56-dev-gecko-cam-calibration' : {
+                env: 'dev',
+            },
+            'm56-test-dvr-data' : {
+                env: 'test',
+            },
+            'm56-test-faceid' : {
+                env: 'test',
+            },
+            'm56-test-gecko-cam-calibration' : {
+                env: 'test',
+            },
+            'momenta-dvr-data-stage' : {
+                env: 'stage',
+            },
+            'momenta-autoring-faceid-stage' : {
+                env: 'stage',
+            },
+            'momenta-dvr-data' : {
+                env: 'prod',
+            },
+            'momenta-autoring-faceid-production' : {
+                env: 'prod',
+            },
+            'momenta-gecko-cam-calibration' : {
+                env: 'prod',
+            },
+
+        }
+    }
+    new Vue({
+        el: '#app',
+        data: {
+            env: 'dev',
+            envs: [
+                {value: 'dev', label: 'dev'},
+                {value: 'stage', label: 'stage'},
+                {value: 'test', label: 'test'},
+                {value: 'prod', label: 'prod'},
+            ],
+            buckets: C.buckets,
+            bucket: "m56-dev-dvr-data",
+            key: "",
+            display_area:""
+        },
+        methods: {
+            query() {
+                console.log(`query() bucket: ${this.bucket}, key: ${this.key}`)
+                let k = this.key
+                if (k.startsWith("/")) {
+                    k = k.substring(1)
+                }
+                const bobj = C.buckets[this.bucket]
+                let params = {
+                    bucket: this.bucket,
+                    env: bobj.env,
+                    region: 'cn-north-1',
+                    key: k
+                }
+                axios.get(`/presign`, {params}).then((res) => {
+                    console.log(res.data)
+                    if (k.endsWith("jpg")|| k.endsWith("jpeg")) {
+                        this.display_area = `<img src="${res.data}"/>`
+                    } else if (k.endsWith("mp4")) {
+                        this.display_area = `<video controls autoplay style="max-height: 877.6px; max-width: 804px;"><source src="${res.data}" type="video/mp4"></video>`
+                    } else {
+                        this.display_area = `<a href="${res.data}" target="_blank">${res.data}</a>`
+                    }
+                    // const data = res.data
+                    // if (data.reason) {
+                    //     this.result = data.queryResult
+                    //     setTimeout(()=>{
+                    //         loading.close()
+                    //         alert(data.reason)
+                    //     }, 300)
+                    // } else {
+                    //     loading.close()
+                    //     this.originTableData = this.getTableData(data)
+                    //     this.onFilterChange()
+                    // }
+                })
+            }
+        }
+    })
+</script>
+<style>
+    .el-table .hide {
+        display: none;
+    }
+    .bucket-select {
+        width: 500px;
+    }
+</style>
+</body>
+</html>
