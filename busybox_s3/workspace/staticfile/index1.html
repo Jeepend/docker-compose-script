@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>S3Utils</title>
+    <script src="/js/vue.js"></script>
+    <script src="/js/axios.min.js"></script>
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="css/eleme.css">
+    <!-- 引入组件库 -->
+    <script src="js/eleme.js"></script>
+    <script src="js/moment.min.js"></script>
+    <link rel="shortcut  icon" type="image/x-icon" media="screen" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABZ0lEQVQ4T43TP0iWURTH8c9rUA6aa4sKEeRUYkstboJhUYOEgWtCaZMhLYHgEIEOIpEKRaSzLjW0NVogOgkvQVDUIA5CSX+QeOPIfeD69KLvhWe4v3vu957z/M6p+H+1YwgD6E7HG3iNV9jJr1SyTQuWcAO5nsf/wCPMFmIReAofcKFORvWk57iDWgFYTEKD9w/CZvAgAOdQRdMxt9/hI+If9eMvzgbgMR428PRTjGIZwyl+KgCbuJgBIps1nMflTJ9CH15ivnAnAL/QnAVGbeOYjhqTXsP1pPfiRNJ/B+A7WjPAXPL6GwZxFS/wB3dLpe6VS4hXvySfA3wfYfFJPEH0Sr6qAYiDiaSO4TSi3kjzM76iB29SRjngWQA68SnZuI1ddGVRk2jDbZwpZXCpaKQFjDRg5aHXcS9v5fclO4/ireMK9svDFNN284hhCuhqaqSfsak3dR24hWtpnKNlt9K3grd5av8A0kxDCZXoAhYAAAAASUVORK5CYII="/>
+</head>
+<body>
+<div id="app">
+    <el-row width="fit-content">
+        <el-select
+                v-model="imei"
+                filterable
+                allow-create
+                default-first-option
+                placeholder="请选择/填写IMEI">
+            <el-option
+                    v-for="item in imeis"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value">
+            </el-option>
+        </el-select>
+
+        <el-date-picker
+                v-model="range"
+                type="datetimerange"
+                :picker-options="pickerOptions"
+                start-placeholder="开始日期"
+                end-placeholder="结束日期"
+                @change="onTimePick"
+                :default-time="['00:00:00', '23:59:59']">
+        </el-date-picker>
+
+        <el-button v-on:click="query">查询</el-button>
+
+        <el-select
+                v-model="env"
+                filterable
+                default-first-option
+                placeholder="请选择/填写IMEI">
+            <el-option
+                    v-for="item in envs"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value">
+            </el-option>
+        </el-select>
+    </el-row>
+
+    <p/>
+
+    <el-row>
+        <el-select v-model="eventNameSet" multiple placeholder="请选择" @change="onFilterChange">
+            <el-option
+                    v-for="item in options"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value">
+            </el-option>
+        </el-select>
+        <el-checkbox v-model="hidePictureTaken" @change="onFilterChange">隐藏onPictureTaken</el-checkbox>
+    </el-row>
+
+    <!--<el-container>-->
+    <!--<el-main>-->
+    <!--<el-collapse>-->
+    <!--<el-collapse-item v-for="(item, lIndex) in result.result"-->
+    <!--v-bind:name="lIndex" v-bind:title="generateTitle(item)" v-show="shouldShowEvent(item.content)">-->
+    <!--{{convertContent(item.content)}}-->
+    <!--</el-collapse-item>-->
+    <!--</el-collapse>-->
+    <!--</el-main>-->
+    <!--</el-container>-->
+
+    <div style="position: absolute; top: 200px; bottom: 100px; left: 0px; right: 0px">
+        <el-table
+                :data="pageData"
+                style="width: 100%"
+                height="100%">
+            <el-table-column type="expand">
+                <template slot-scope="props">
+                    <el-form label-position="left" inline class="demo-table-expand">
+                        <el-form-item>
+                            <div v-if="props.row.content.sub instanceof Array">
+                                <el-tree :data="props.row.content.sub" :props="defaultProps">
+                                 <span class="custom-tree-node" slot-scope="{ node, data }">
+                                    <span>{{node.label}}</span>
+                                    <span v-if="!!data.sub">({{data.sub.length}})</span>
+                                    <span>{{renderSize(data.size)}}</span>
+                                  </span>
+                                </el-tree>
+                            </div>
+                            <div v-else>
+                                <span>{{ props.row.content }}</span>
+                            </div>
+                        </el-form-item>
+                    </el-form>
+                </template>
+            </el-table-column>
+            <el-table-column
+                    label="事件类型"
+                    prop="event_type">
+            </el-table-column>
+            <el-table-column
+                    label="事件时间"
+                    prop="timestamp">
+            </el-table-column>
+            <el-table-column
+                    label="事件名称"
+                    prop="event_name">
+            </el-table-column>
+            <el-table-column
+                    label="备注">
+                <template slot-scope="props">
+                    <div v-if="props.row.event_name === 'WatchdogFolderInfo'">
+                        <el-tooltip class="item" effect="dark" v-bind:content="getToolTip(props.row.content)" placement="top">
+                            <span>Image: {{renderSize(props.row.content.image)}} Video: {{renderSize(props.row.content.video)}}</span>
+                        </el-tooltip>
+                    </div>
+                    <div v-else>
+                        {{props.row.content_name}}
+                    </div>
+                </template>
+            </el-table-column>
+        </el-table>
+    </div>
+    <div style="position: absolute; bottom: 50px; left:0px; right: 0px">
+        <el-pagination
+                @size-change="handlePageSizeChange"
+                @current-change="handleCurrentPageChange"
+                :current-page="currentPage"
+                :page-sizes="[100, 200, 300, 400]"
+                :page-size="pageSize"
+                layout="total, sizes, prev, pager, next, jumper"
+                :total="totalCount"
+                style="width: fit-content; margin-left: auto; margin-right: auto">
+        </el-pagination>
+    </div>
+
+</div>
+
+<script>
+    new Vue({
+        el: '#app',
+        data: {
+            env: 'dev',
+            envs: [
+                {value: 'dev', label: 'dev'},
+                {value: 'stage', label: 'stage'},
+                {value: 'test', label: 'test'},
+                {value: 'prod', label: 'prod'},
+            ],
+            imei: localStorage.getItem('imei'),
+            imeis: [
+                {
+                    value: 863346039924322,
+                    label: '863346039924322'
+                },
+                {
+                    value: 863346039910750,
+                    label: '1# 863346039910750'
+                },
+                {
+                    value: 863346038906569,
+                    label: '2# 863346038906569'
+                },
+                {
+                    value: 863346039921708,
+                    label: '3# 863346039921708'
+                },
+                {
+                    value: 863346039921435,
+                    label: '4# 863346039921435'
+                },
+                {
+                    value: 863346039921583,
+                    label: '5# 863346039921583'
+                },
+                {
+                    value: 863346039921526,
+                    label: '6# 863346039921526'
+                },
+                {
+                    value: 863346039921401,
+                    label: '7# 863346039921401'
+                },
+                {
+                    value: 863346039924025,
+                    label: '8# 863346039924025'
+                }
+            ],
+            range: JSON.parse(sessionStorage.getItem('range')) || [moment().subtract(5, 'minutes').toDate(), moment().toDate()],
+            result:{},
+            options: [{
+                value: "HeartBeat",
+                label: 'HeartBeat'
+            }, {
+                value: "DVR_Main",
+                label: 'DVR_Main'
+            }, {
+                value: "WatchdogHeartBeat",
+                label: 'WatchdogHeartBeat'
+            }, {
+                value: "WatchdogFolderInfo",
+                label: 'WatchdogFolderInfo'
+            }, {
+                value: 'DeviceEvent',
+                label: 'DeviceEvent'
+            }, {
+                value: "ExecuteCommand",
+                label: "ExecuteCommand"
+            }],
+            eventNameSet: JSON.parse(localStorage.getItem('eventNameSet')) || ["DVR_Main", "DeviceEvent", "WatchdogHeartBeat"],
+            pickerOptions: {
+                shortcuts: [{
+                    text: '最近一周',
+                    onClick(picker) {
+                        const end = new Date();
+                        const start = new Date();
+                        start.setTime(start.getTime() - 3600 * 1000 * 24 * 7);
+                        picker.$emit('pick', [start, end]);
+                    }
+                }
+                    , {
+                        text: '最近一天',
+                        onClick(picker) {
+                            const end = new Date();
+                            const start = new Date();
+                            start.setTime(start.getTime() - 3600 * 1000 * 24);
+                            picker.$emit('pick', [start, end]);
+                        }
+                    }, {
+                        text: '最近一小时',
+                        onClick(picker) {
+                            const end = new Date();
+                            const start = new Date();
+                            start.setTime(start.getTime() - 3600 * 1000);
+                            picker.$emit('pick', [start, end]);
+                        }
+                    }, {
+                        text: '最近5分钟',
+                        onClick(picker) {
+                            const end = new Date();
+                            const start = new Date();
+                            start.setTime(start.getTime() - 5 * 60 * 1000);
+                            picker.$emit('pick', [start, end]);
+                        }
+                    }],
+            },
+            hidePictureTaken: JSON.parse(localStorage.getItem('hidePictureTaken')),
+            originTableData: [],
+            filteredTableData: [],
+            tableData: [],
+            currentPage: 1,
+            totalCount: 0,
+            pageData:[],
+            pageSize: 100,
+            defaultProps: {
+                children: 'sub',
+                label: 'name'
+            }
+        },
+        methods: {
+            onTimePick() {
+                sessionStorage.setItem('range', JSON.stringify(this.range))
+            },
+            query: function (event) {
+                if (!this.imei) {
+                    alert('请填写IMEI')
+                    return
+                }
+                localStorage.setItem('imei', this.imei)
+                const time_from = moment(this.range[0]).utc().format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z'
+                const time_to = moment(this.range[1]).utc().format('YYYY-MM-DDTHH:mm:ss.SSS') + 'Z'
+                this.currentEnv = this.env
+                this.result = {}
+                this.tableData = []
+                this.originTableData = []
+                const loading = this.$loading({
+                    lock: true,
+                    text: '查询中，请稍候……',
+                    background: 'rgba(0, 0, 0, 0.7)'
+                });
+                var params = new URLSearchParams();
+                params.append('imei', this.imei);
+                params.append('time_from', time_from);
+                params.append('time_to', time_to);
+                axios.post(`/api/query`, params).then((res) => {
+                    console.log(res.data)
+                    const data = res.data
+                    if (data.reason) {
+                        this.result = data.queryResult
+                        setTimeout(()=>{
+                            loading.close()
+                            alert(data.reason)
+                        }, 300)
+                    } else {
+                        loading.close()
+                        this.originTableData = this.getTableData(data)
+                        this.onFilterChange()
+                    }
+                })
+
+            },
+            handlePageSizeChange(size) {
+                this.pageSize = size
+                this.handlePaginationChange()
+            },
+            handleCurrentPageChange(current) {
+                this.currentPage = current
+                this.handlePaginationChange()
+            },
+            handlePaginationChange() {
+                console.log('this.pageSize = ' + this.pageSize + ', this.currentPage = ' + this.currentPage)
+                this.pageData = this.tableData.slice(this.pageSize * (this.currentPage - 1), this.pageSize * this.currentPage)
+                console.log('pageData = ', this.pageData)
+            },
+            onFilterChange() {
+                this.tableData = this.getFilteredTableData(this.originTableData)
+                this.totalCount = this.tableData.length
+                const totalPage = Math.floor(this.totalCount / this.pageSize) + 1
+                if (this.currentPage > totalPage) {
+                    this.currentPage = totalPage
+                }
+                this.handlePaginationChange()
+                localStorage.setItem('hidePictureTaken', JSON.stringify(this.hidePictureTaken))
+                localStorage.setItem('eventNameSet', JSON.stringify(this.eventNameSet))
+            },
+            getFilteredTableData(originTableData) {
+                let data = []
+                originTableData.forEach((item) => {
+                    if (item.event_type === 'app_event') {
+                        if (this.eventNameSet.indexOf(item.event_name) === -1) {
+                            return
+                        }
+                        if (typeof(item.content) !== 'string') {
+                            console.log("this.eventNameSet = " + this.eventNameSet + ", item.event_name = " + item.event_name)
+                            if (this.hidePictureTaken && item.content.e_name === 'onPictureTaken') {
+                                return
+                            }
+                        }
+                    }
+                    data.push(item)
+                })
+                return data
+            },
+            getTableData(data) {
+                let tableData = []
+                for (const item of data.result) {
+                    const event_type = item.event_type
+                    const timestamp = moment(item.content.content_timestamp).format()
+                    const origin_time = item.content.content_timestamp
+                    const event_name = item.content.event_name
+                    let content = item.content.content
+                    const content_name = (content.indexOf('{') === 0) ? this.getContentName(event_name, content) : content
+                    if (content.indexOf('{') === 0) {
+                        content = JSON.parse(content)
+                        if (!!content.sub) {
+                            this.sortSub(content)
+                        }
+                    }
+                    tableData.push({event_type, timestamp, origin_time, event_name, content, content_name})
+                }
+                return tableData
+            },
+            sortSub(content) {
+                if (!content.sub) {
+                    return
+                }
+                content.sub.sort((l, r) => {
+                    if (l.name > r.name) {
+                        return 1
+                    } else if (l.name < r.name) {
+                        return -1
+                    } else {
+                        return 0
+                    }
+                })
+                content.sub.forEach((item) => {
+                    this.sortSub(item)
+                })
+            },
+            getContentName(event_name, content) {
+                const contentObj = JSON.parse(content)
+                switch (event_name) {
+                    case 'DeviceEvent':
+                        return contentObj.action
+                    // case 'WatchdogHeartBeat':
+                    //     return `sdcard1 Total: ${this.renderSize(contentObj.sdcard1[0] * 1000)}, Free: ${this.renderSize(contentObj.sdcard1[1] * 1000)}`
+                }
+                return contentObj.path
+            },
+            renderSize(value) {
+                if (null == value || value == '') {
+                    return "0 Bytes";
+                }
+                var unitArr = new Array("bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB");
+                var index = 0;
+                var srcsize = parseInt(value);
+                index = Math.floor(Math.log(srcsize) / Math.log(1000));
+                var size = srcsize / Math.pow(1000, index);
+                size = size.toFixed(3);
+                var intValue = parseInt(size);
+                if (size == intValue) {
+                    if (intValue == 1 && index == 0) {
+                        return intValue + " byte";
+                    }
+                    return intValue + " " + unitArr[index];
+                }
+                return size + " " + unitArr[index];
+            },
+            getToolTip(content) {
+                return `Image: ${content.image} bytes Video: ${content.video} bytes`;
+            }
+
+        }
+    })
+</script>
+<style>
+    .el-table .hide {
+        display: none;
+    }
+</style>
+</body>
+</html>
