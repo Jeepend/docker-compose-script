@@ -1,0 +1,14 @@
+version: '2'
+services: 
+  main: 
+    image: jeepend/debian_server
+    restart: always
+    ports: 
+      - '10022:22' # ssh
+    volumes: 
+      - '/docker_machine_workspace:/home/jeepend/workspace'
+      - '/etc/localtime:/etc/localtime' # timesone
+      - '/etc/timezone:/etc/timezone' # timezone
+    tty: true # Allocate a pseudo-TTY (same with docker run -t)
+    stdin_open: true # Keep STDIN open even if not attached (same with docker run -i)
+    command: 'bash -c "service ssh start && tail -f /dev/null"'
